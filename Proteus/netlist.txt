@@ -1,0 +1,52 @@
+NETLIST - ColdChainMonitor (STM32F051K8) - 含LCD1602
+============================================================
+MCU POWER:
+  Pin1(VDDA),9(VDD),24(VDD) -> +3.3V
+  Pin8(VSSA),10(VSS),23(VSS) -> GND
+  Pin6(PF1),7(PF0) -> NC (HSI mode)
+
+CONNECTIONS:
+  PA0  <- GPS TX (Software UART 9600)
+  PA1  -> LCD1602 RS
+  PA2  -> LCD1602 EN
+  PA3  -> LCD1602 D4
+  PA4  -> LCD1602 D5
+  PA5  -> SD SCK  (SPI1)
+  PA6  <-> SD MISO
+  PA7  -> SD MOSI
+  PA8  -> LCD1602 D6
+  PA9  -> ESP8266 RXD (USART1 TX 115200)
+  PA10 <- ESP8266 TXD
+  PA15 -> LCD1602 D7
+  PB0  -> LED-R + 220R -> GND
+  PB1  -> LED-G + 220R -> GND
+  PB2  -> LED-B + 220R -> GND
+  PB4  -> 10k -> NPN base, collector->buzzer+, emitter->GND
+  PB5  -> SD CS
+  PB6  <-> DHT22 DATA + MPU6050 SCL (4k7 pullup)
+  PB7  <-> MPU6050 SDA (4k7 pullup)
+  PC13 -> LED-HB + 220R -> GND
+
+LCD1602 (LM016L):
+  Pin1(VSS) -> GND
+  Pin2(VDD) -> +5V
+  Pin3(VEE) -> 电位器中点(调对比度) 或 GND
+  Pin4(RS)  -> PA1
+  Pin5(RW)  -> GND (只写模式)
+  Pin6(E)   -> PA2
+  Pin7-10(D0-D3) -> NC
+  Pin11(D4) -> PA3
+  Pin12(D5) -> PA4
+  Pin13(D6) -> PA8
+  Pin14(D7) -> PA15
+  Pin15(LED+) -> +5V (背光)
+  Pin16(LED-) -> GND (背光)
+
+EXTERNAL MODULES:
+  DHT22: VDD->3.3V, DATA->PB6+4k7->3.3V, GND->GND
+  MPU6050: VCC->3.3V, GND->GND, SCL->PB6+4k7, SDA->PB7+4k7, AD0->GND
+  GPS: VCC->3.3V, GND->GND, TX->PA0, RX->NC
+  ESP8266: VCC->3.3V(500mA), GND->GND, CH_PD->3.3V(10k), RST->3.3V(10k), RXD->PA9, TXD->PA10, GPIO0/2->3.3V(10k)
+  SD: VCC->3.3V, GND->GND, SCK->PA5, MOSI->PA7, MISO->PA6, CS->PB5
+
+FIRMWARE: MDK-ARM\ColdChainMonitor\ColdChainMonitor.hex, crystal=48MHz
