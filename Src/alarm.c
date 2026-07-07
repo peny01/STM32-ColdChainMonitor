@@ -40,6 +40,7 @@ void Alarm_Init(void)
     HAL_GPIO_WritePin(LED_R_PORT, LED_R_PIN | LED_G_PIN | LED_B_PIN, GPIO_PIN_RESET);
 
     current_alarm = ALARM_NONE;
+    g_state.alarm_active = 0;
 }
 
 void Alarm_Check(SensorData_t *data)
@@ -95,6 +96,7 @@ void Alarm_Trigger(uint8_t type)
             break;
     }
 
+    g_state.alarm_active = 1;
     Alarm_Beep(200);
     MQTT_PublishAlarm(Alarm_TypeName(type), "Alarm triggered");
 }
@@ -102,6 +104,7 @@ void Alarm_Trigger(uint8_t type)
 void Alarm_Clear(void)
 {
     current_alarm = ALARM_NONE;
+    g_state.alarm_active = 0;
     Alarm_SetLED(0, 0, 0);
     HAL_GPIO_WritePin(BUZZER_PORT, BUZZER_PIN, GPIO_PIN_RESET);
 }

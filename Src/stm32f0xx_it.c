@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 #include "esp8266.h"
 
 void NMI_Handler(void) {}
@@ -18,7 +18,7 @@ void USART1_IRQHandler(void)
         uint8_t byte = (uint8_t)(huart1.Instance->RDR & 0xFF);
         if (esp_rx_len < ESP_RX_BUF_SIZE - 1) {
             esp_rx_buf[esp_rx_len++] = byte;
-            if (byte == '\n') {
+            if (byte == '\n' || byte == '>') {
                 esp_rx_buf[esp_rx_len] = '\0';
                 esp_data_ready = 1;
             }

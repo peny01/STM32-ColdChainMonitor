@@ -1,4 +1,4 @@
-﻿#include "main.h"
+#include "main.h"
 #include "dht22.h"
 #include "mpu6050.h"
 #include "gps.h"
@@ -82,6 +82,13 @@ void MX_GPIO_Init(void)
     HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0 | GPIO_PIN_1 | GPIO_PIN_2, GPIO_PIN_RESET);
 
     /* TFT control pins are initialized in LCD_ControlGPIO_Init() -> lcd.c */
+
+    /* Heartbeat LED PC13 */
+    GPIO_InitStruct.Pin = GPIO_PIN_13;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 }
 
 void MX_USART1_UART_Init_ESP(void)
@@ -185,7 +192,6 @@ static void System_Init(void)
     delay_ms(1500);
     Lcd_Clear(BLACK);
 
-    MX_IWDG_Init();
 
     Alarm_SetLED(0, 1, 0);
     delay_ms(500);
@@ -303,6 +309,7 @@ static void MX_IWDG_Init(void)
 
 int main(void)
 {
+    HAL_Init();
     System_Init();
 
     g_state.wifi_connected = (ESP8266_Init() == 0) ? 1 : 0;
@@ -313,6 +320,8 @@ int main(void)
     if (g_state.wifi_connected) {
         g_state.mqtt_connected = (MQTT_Connect(MQTT_CLIENT_ID, "", "") == 0) ? 1 : 0;
     }
+
+    MX_IWDG_Init();
 
     while (1)
     {

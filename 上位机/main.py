@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""\"\"
+"""
 基于STM32的冷链运输环境监测系统 - 上位机监控软件
-\"\"\"\"
+"""
 
 import sys
 import json
