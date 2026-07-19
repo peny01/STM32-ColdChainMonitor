@@ -36,7 +36,7 @@ void SystemClock_Config(void)
     RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
     RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
+    RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL12;
     RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
         Error_Handler();
@@ -163,6 +163,8 @@ void Error_Handler(void)
 static void Base_Periph_Init(void)
 {
     SystemClock_Config();
+    SystemCoreClockUpdate();
+    HAL_SYSTICK_Config(SystemCoreClock / 1000);
     MX_GPIO_Init();
     MX_USART1_UART_Init_ESP();
     MX_SPI1_Init();

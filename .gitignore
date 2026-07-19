@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+
+# Keil build artifacts (keep .axf/.hex for release, ignore intermediates)
+*.uvguix.*
+*.dep
+*.crf
+*.o
+*.d
+*.lst
+*.build_log.htm

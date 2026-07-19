@@ -18,6 +18,7 @@
 
 static uint8_t mqtt_connected = 0;
 static uint16_t packet_id = 1;
+static uint8_t mqtt_pkt_buf[MQTT_BUF_SIZE];  /* static to avoid stack overflow */
 
 /* 内部函数声明 */
 static uint8_t MQTT_EncodeRemLen(uint32_t length, uint8_t *buf);
@@ -40,7 +41,6 @@ static uint8_t MQTT_EncodeRemLen(uint32_t length, uint8_t *buf)
 /* 内部：构建并发送CONNECT报文 */
 static uint8_t MQTT_SendConnect(const char *client_id, const char *username, const char *password)
 {
-    uint8_t packet[MQTT_BUF_SIZE];
     uint8_t remlen_buf[4];
     uint16_t pos = 1;          /* 跳过固定头第1字节 */
     uint32_t remlen;
@@ -49,35 +49,35 @@ static uint8_t MQTT_SendConnect(const char *client_id, const char *username, con
 
     /* === 可变头 === */
     /* 协议名 "MQTT"（2字节长度 + 4字节数据） */
-    packet[pos++] = 0x00;
-    packet[pos++] = 0x04;
-    packet[pos++] = 'M';
-    packet[pos++] = 'Q';
-    packet[pos++] = 'T';
-    packet[pos++] = 'T';
+    mqtt_pkt_buf[pos++] = 0x00;
+    mqtt_pkt_buf[pos++] = 0x04;
+    mqtt_pkt_buf[pos++] = 'M';
+    mqtt_pkt_buf[pos++] = 'Q';
+    mqtt_pkt_buf[pos++] = 'T';
+    mqtt_pkt_buf[pos++] = 'T';
 
     /* 协议级别 */
-    packet[pos++] = MQTT_PROTOCOL_LEVEL;
+    mqtt_pkt_buf[pos++] = MQTT_PROTOCOL_LEVEL;
 
     /* 连接标志 */
     if (username != NULL && strlen(username) > 0)
         connect_flags |= 0x80;  /* Username flag */
     if (password != NULL && strlen(password) > 0)
         connect_flags |= 0x40;  /* Password flag */
-    packet[pos++] = connect_flags;
+    mqtt_pkt_buf[pos++] = connect_flags;
 
     /* Keep Alive: 60秒 */
-    packet[pos++] = 0x00;
-    packet[pos++] = 0x3C;
+    mqtt_pkt_buf[pos++] = 0x00;
+    mqtt_pkt_buf[pos++] = 0x3C;
 
     /* === 有效载荷 === */
     /* Client ID */
     {
         uint16_t len = (client_id != NULL) ? strlen(client_id) : 0;
-        packet[pos++] = (len >> 8) & 0xFF;
-        packet[pos++] = len & 0xFF;
+        mqtt_pkt_buf[pos++] = (len >> 8) & 0xFF;
+        mqtt_pkt_buf[pos++] = len & 0xFF;
         if (len > 0) {
-            memcpy(&packet[pos], client_id, len);
+            memcpy(&mqtt_pkt_buf[pos], client_id, len);
             pos += len;
         }
     }
@@ -86,9 +86,9 @@ static uint8_t MQTT_SendConnect(const char *client_id, const char *username, con
     if (connect_flags & 0x80)
     {
         uint16_t len = strlen(username);
-        packet[pos++] = (len >> 8) & 0xFF;
-        packet[pos++] = len & 0xFF;
-        memcpy(&packet[pos], username, len);
+        mqtt_pkt_buf[pos++] = (len >> 8) & 0xFF;
+        mqtt_pkt_buf[pos++] = len & 0xFF;
+        memcpy(&mqtt_pkt_buf[pos], username, len);
         pos += len;
     }
 
@@ -96,9 +96,9 @@ static uint8_t MQTT_SendConnect(const char *client_id, const char *username, con
     if (connect_flags & 0x40)
     {
         uint16_t len = strlen(password);
-        packet[pos++] = (len >> 8) & 0xFF;
-        packet[pos++] = len & 0xFF;
-        memcpy(&packet[pos], password, len);
+        mqtt_pkt_buf[pos++] = (len >> 8) & 0xFF;
+        mqtt_pkt_buf[pos++] = len & 0xFF;
+        memcpy(&mqtt_pkt_buf[pos], password, len);
         pos += len;
     }
 
@@ -107,15 +107,15 @@ static uint8_t MQTT_SendConnect(const char *client_id, const char *username, con
     remlen_cnt = MQTT_EncodeRemLen(remlen, remlen_buf);
 
     /* 将可变头+有效载荷后移，给remlen编码腾位置 */
-    memmove(&packet[1 + remlen_cnt], &packet[1], (size_t)remlen);
-    memcpy(&packet[1], remlen_buf, remlen_cnt);
+    memmove(&mqtt_pkt_buf[1 + remlen_cnt], &mqtt_pkt_buf[1], (size_t)remlen);
+    memcpy(&mqtt_pkt_buf[1], remlen_buf, remlen_cnt);
 
-    packet[0] = MQTT_CONNECT;                 /* 固定头第1字节 */
+    mqtt_pkt_buf[0] = MQTT_CONNECT;                 /* 固定头第1字节 */
 
     uint16_t total_len = 1 + remlen_cnt + (uint16_t)remlen;
 
     /* 通过ESP8266发送 */
-    if (ESP8266_SendData(packet, total_len) != 0)
+    if (ESP8266_SendData(mqtt_pkt_buf, total_len) != 0)
         return 1;
 
     /* 等待接收CONNACK */
@@ -150,8 +150,8 @@ uint8_t MQTT_Disconnect(void)
     if (!mqtt_connected) return 0;
 
     /* 发送DISCONNECT报文（固定头0xE0 + 剩余长度0） */
-    uint8_t packet[2] = {MQTT_DISCONNECT, 0x00};
-    ESP8266_SendData(packet, 2);
+    uint8_t disc_buf[2] = {MQTT_DISCONNECT, 0x00};
+    ESP8266_SendData(disc_buf, 2);
 
     HAL_Delay(200);
     ESP8266_CloseTCP();
@@ -163,7 +163,6 @@ uint8_t MQTT_Disconnect(void)
 /* MQTT订阅主题 (QoS 0) */
 uint8_t MQTT_Subscribe(const char *topic)
 {
-    uint8_t packet[MQTT_BUF_SIZE];
     uint8_t remlen_buf[4];
     uint16_t pos = 1;
     uint32_t remlen;
@@ -173,29 +172,29 @@ uint8_t MQTT_Subscribe(const char *topic)
     if (!mqtt_connected) return 1;
 
     /* Packet Identifier */
-    packet[pos++] = (packet_id >> 8) & 0xFF;
-    packet[pos++] = packet_id & 0xFF;
+    mqtt_pkt_buf[pos++] = (packet_id >> 8) & 0xFF;
+    mqtt_pkt_buf[pos++] = packet_id & 0xFF;
 
     /* Topic Filter */
     topic_len = strlen(topic);
-    packet[pos++] = (topic_len >> 8) & 0xFF;
-    packet[pos++] = topic_len & 0xFF;
-    memcpy(&packet[pos], topic, topic_len);
+    mqtt_pkt_buf[pos++] = (topic_len >> 8) & 0xFF;
+    mqtt_pkt_buf[pos++] = topic_len & 0xFF;
+    memcpy(&mqtt_pkt_buf[pos], topic, topic_len);
     pos += topic_len;
 
     /* Requested QoS */
-    packet[pos++] = 0x00;
+    mqtt_pkt_buf[pos++] = 0x00;
 
     remlen = pos - 1;
     remlen_cnt = MQTT_EncodeRemLen(remlen, remlen_buf);
 
-    memmove(&packet[1 + remlen_cnt], &packet[1], (size_t)remlen);
-    memcpy(&packet[1], remlen_buf, remlen_cnt);
-    packet[0] = MQTT_SUBSCRIBE;
+    memmove(&mqtt_pkt_buf[1 + remlen_cnt], &mqtt_pkt_buf[1], (size_t)remlen);
+    memcpy(&mqtt_pkt_buf[1], remlen_buf, remlen_cnt);
+    mqtt_pkt_buf[0] = MQTT_SUBSCRIBE;
 
     uint16_t total_len = 1 + remlen_cnt + (uint16_t)remlen;
 
-    if (ESP8266_SendData(packet, total_len) != 0)
+    if (ESP8266_SendData(mqtt_pkt_buf, total_len) != 0)
         return 2;
 
     packet_id++;
@@ -213,7 +212,6 @@ uint8_t MQTT_Unsubscribe(const char *topic)
 /* MQTT发布消息 */
 uint8_t MQTT_Publish(const char *topic, const char *payload, uint8_t qos)
 {
-    uint8_t packet[MQTT_BUF_SIZE];
     uint8_t remlen_buf[4];
     uint16_t pos = 1;
     uint32_t remlen;
@@ -229,34 +227,34 @@ uint8_t MQTT_Publish(const char *topic, const char *payload, uint8_t qos)
 
     /* Topic */
     topic_len = strlen(topic);
-    packet[pos++] = (topic_len >> 8) & 0xFF;
-    packet[pos++] = topic_len & 0xFF;
-    memcpy(&packet[pos], topic, topic_len);
+    mqtt_pkt_buf[pos++] = (topic_len >> 8) & 0xFF;
+    mqtt_pkt_buf[pos++] = topic_len & 0xFF;
+    memcpy(&mqtt_pkt_buf[pos], topic, topic_len);
     pos += topic_len;
 
     /* Packet Identifier (仅QoS >= 1) */
     if (qos > 0)
     {
-        packet[pos++] = (packet_id >> 8) & 0xFF;
-        packet[pos++] = packet_id & 0xFF;
+        mqtt_pkt_buf[pos++] = (packet_id >> 8) & 0xFF;
+        mqtt_pkt_buf[pos++] = packet_id & 0xFF;
         packet_id++;
     }
 
     /* Payload */
     payload_len = strlen(payload);
-    memcpy(&packet[pos], payload, payload_len);
+    memcpy(&mqtt_pkt_buf[pos], payload, payload_len);
     pos += payload_len;
 
     remlen = pos - 1;
     remlen_cnt = MQTT_EncodeRemLen(remlen, remlen_buf);
 
-    memmove(&packet[1 + remlen_cnt], &packet[1], (size_t)remlen);
-    memcpy(&packet[1], remlen_buf, remlen_cnt);
-    packet[0] = header_type;
+    memmove(&mqtt_pkt_buf[1 + remlen_cnt], &mqtt_pkt_buf[1], (size_t)remlen);
+    memcpy(&mqtt_pkt_buf[1], remlen_buf, remlen_cnt);
+    mqtt_pkt_buf[0] = header_type;
 
     uint16_t total_len = 1 + remlen_cnt + (uint16_t)remlen;
 
-    if (ESP8266_SendData(packet, total_len) != 0)
+    if (ESP8266_SendData(mqtt_pkt_buf, total_len) != 0)
         return 2;
 
     return 0;

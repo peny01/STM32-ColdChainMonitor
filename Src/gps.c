@@ -138,6 +138,14 @@ static uint8_t ParseGPGGA(const char *buf)
     if (GetField(buf, 7, field, sizeof(field)) == 0)
         g_sensor.gps_satellites = (uint8_t)atoi(field);
 
+    /* Reject invalid fix: quality 0 means no GPS lock */
+    if (g_sensor.gps_fix == 0) {
+        g_sensor.latitude = 0;
+        g_sensor.longitude = 0;
+        g_sensor.altitude = 0;
+        return 1;
+    }
+
     if (GetField(buf, 9, field, sizeof(field)) == 0)
         g_sensor.altitude = (float)atof(field);
 

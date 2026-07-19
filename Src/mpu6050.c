@@ -19,8 +19,13 @@ static void i2c_stop(void)
 static uint8_t i2c_wait_ack(void)
 {
     uint8_t ack;
+    uint16_t timeout = 1000;
     MPU_SDA_H; i2c_delay();
     MPU_SCL_H; i2c_delay();
+    /* Wait for SCL to go high with timeout */
+    while (HAL_GPIO_ReadPin(MPU_SCL_PORT, MPU_SCL_PIN) == GPIO_PIN_RESET) {
+        if (--timeout == 0) return 1;
+    }
     ack = MPU_SDA_IN;
     MPU_SCL_L; i2c_delay();
     return ack;
